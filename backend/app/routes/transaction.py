@@ -2,11 +2,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
+from decimal import Decimal
 
 from app.db.session import get_db
 from app.models.user import User
 from app.models.portfolio_entry import PortfolioEntry
 from app.models.asset import Asset
+from app.models.wallet import Wallet
 from app.schemas.transaction import TransactionCreate, TransactionResponse
 from app.services.dependecy import get_current_user
 from app.services.market_data import get_current_price
@@ -23,9 +25,21 @@ def buy_asset(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    # Fetch current market price
     price = get_current_price(asset.symbol)
+    total_cost = Decimal(transaction.quantity) * Decimal(price)
 
+    # Fetch user's wallet
+    wallet = db.query(Wallet).filter(Wallet.user_id == current_user.id).first()
+    if not wallet:
+        raise HTTPException(status_code=404, detail="Wallet not found")
+    if wallet.balance < total_cost:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
+
+    # Deduct from wallet
+    wallet.balance -= total_cost
+    db.add(wallet)
+
+    # Update or create portfolio entry
     entry = db.query(PortfolioEntry).filter(
         PortfolioEntry.user_id == current_user.id,
         PortfolioEntry.asset_id == transaction.asset_id
@@ -48,6 +62,7 @@ def buy_asset(
 
     db.commit()
     db.refresh(entry)
+    db.refresh(wallet)
 
     return TransactionResponse(
         asset_id=entry.asset_id,
@@ -57,6 +72,7 @@ def buy_asset(
         price=price,
         date=datetime.utcnow()
     )
+
 
 @router.post("/sell", response_model=TransactionResponse)
 def sell_asset(
@@ -69,22 +85,34 @@ def sell_asset(
         raise HTTPException(status_code=404, detail="Asset not found")
 
     price = get_current_price(asset.symbol)
+    total_sell = Decimal(transaction.quantity) * Decimal(price)
 
+    # Fetch user's portfolio entry
     entry = db.query(PortfolioEntry).filter(
         PortfolioEntry.user_id == current_user.id,
         PortfolioEntry.asset_id == transaction.asset_id
     ).first()
-
     if not entry:
         raise HTTPException(status_code=400, detail="Asset not in portfolio")
     if transaction.quantity > entry.quantity:
         raise HTTPException(status_code=400, detail="Not enough quantity to sell")
 
+    # Update wallet
+    wallet = db.query(Wallet).filter(Wallet.user_id == current_user.id).first()
+    if not wallet:
+        raise HTTPException(status_code=404, detail="Wallet not found")
+    wallet.balance += total_sell
+    db.add(wallet)
+
+    # Update portfolio
     entry.quantity -= transaction.quantity
     if entry.quantity == 0:
         db.delete(entry)
+    else:
+        db.add(entry)
 
     db.commit()
+    db.refresh(wallet)
 
     return TransactionResponse(
         asset_id=entry.asset_id,

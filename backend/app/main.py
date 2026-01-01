@@ -6,6 +6,8 @@ from app.routes import auth
 from app.routes import portfolio_entry
 from app.routes import asset
 from app.routes import transaction
+from app.routes import wallet
+
 from app.middlewares.cors import setup_cors
 
 
@@ -30,6 +32,7 @@ app.include_router(auth.router)
 app.include_router(portfolio_entry.router)
 app.include_router(asset.router)
 app.include_router(transaction.router)
+app.include_router(wallet.router)
 
 
 

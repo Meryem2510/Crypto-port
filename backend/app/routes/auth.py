@@ -32,3 +32,8 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
             detail="Invalid email or password"
         )
     return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post("/logout")
+def logout():
+    return {"message": "Logged out"}
