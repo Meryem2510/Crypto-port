@@ -463,6 +463,10 @@ export default function CryptoPortfolio() {
         getMyPortfolio(),
         getAssets()
       ]);
+
+      console.log('Assets API response:', assets);
+      console.log('First asset:', assets[0]);
+      console.log('Available price fields:', Object.keys(assets[0] || {}));
       
       setPortfolioData(portfolio);
       setAllAssets(assets);
