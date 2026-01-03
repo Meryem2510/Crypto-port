@@ -1,6 +1,8 @@
 # app/schemas/transaction.py
 from pydantic import BaseModel
 from datetime import datetime
+from decimal import Decimal
+from typing import Optional
 
 
 from pydantic import BaseModel
@@ -17,9 +19,10 @@ class TransactionResponse(BaseModel):
     asset_id: int
     quantity: float
     average_buy_price: float
-    type: str  # 'buy' or 'sell'
+    type: str  
     price: float
     date: datetime
+    wallet_balance: Optional[Decimal] = None
 
     class Config:
         orm_mode = True

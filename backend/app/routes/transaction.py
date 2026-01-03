@@ -46,11 +46,19 @@ def buy_asset(
     ).first()
 
     if entry:
-        total_quantity = entry.quantity + transaction.quantity
-        entry.average_buy_price = (
-            entry.average_buy_price * entry.quantity + price * transaction.quantity
-        ) / total_quantity
-        entry.quantity = total_quantity
+        # Convert to Decimal for precise arithmetic
+        entry_avg_price = Decimal(str(entry.average_buy_price)) if entry.average_buy_price else Decimal('0')
+        entry_qty = Decimal(str(entry.quantity))
+        trans_qty = Decimal(str(transaction.quantity))
+        current_price = Decimal(str(price))
+        
+        # Calculate weighted average
+        numerator = (entry_avg_price * entry_qty) + (current_price * trans_qty)
+        total_quantity = entry_qty + trans_qty
+        
+        # Update entry
+        entry.average_buy_price = float(numerator / total_quantity)
+        entry.quantity = float(total_quantity)
     else:
         entry = PortfolioEntry(
             user_id=current_user.id,
@@ -70,7 +78,8 @@ def buy_asset(
         average_buy_price=entry.average_buy_price,
         type="buy",
         price=price,
-        date=datetime.utcnow()
+        date=datetime.utcnow(),
+        wallet_balance=wallet.balance  # Added wallet balance to response
     )
 
 
@@ -120,5 +129,6 @@ def sell_asset(
         average_buy_price=entry.average_buy_price,
         type="sell",
         price=price,
-        date=datetime.utcnow()
+        date=datetime.utcnow(),
+        wallet_balance=wallet.balance  # ✅ ADD THIS
     )
